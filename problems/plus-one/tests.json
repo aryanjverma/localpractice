@@ -1,0 +1,35 @@
+{
+  "title": "Plus One",
+  "entry": "Solution.plusOne",
+  "tests": [
+    {
+      "name": "simple",
+      "args": [
+        [
+          1,
+          2,
+          3
+        ]
+      ],
+      "expected": [
+        1,
+        2,
+        4
+      ]
+    },
+    {
+      "name": "carry",
+      "args": [
+        [
+          9,
+          9
+        ]
+      ],
+      "expected": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}
