@@ -1,0 +1,70 @@
+{
+  "title": "Valid Anagram",
+  "entry": "Solution.isAnagram",
+  "tests": [
+    {
+      "name": "example-1",
+      "args": [
+        "anagram",
+        "nagaram"
+      ],
+      "expected": true
+    },
+    {
+      "name": "example-2",
+      "args": [
+        "rat",
+        "car"
+      ],
+      "expected": false
+    },
+    {
+      "name": "typical-single-match",
+      "args": [
+        "a",
+        "a"
+      ],
+      "expected": true
+    },
+    {
+      "name": "typical-single-mismatch",
+      "args": [
+        "a",
+        "b"
+      ],
+      "expected": false
+    },
+    {
+      "name": "edge-different-lengths",
+      "args": [
+        "ab",
+        "a"
+      ],
+      "expected": false
+    },
+    {
+      "name": "edge-all-same-letters",
+      "args": [
+        "aaaa",
+        "aaaa"
+      ],
+      "expected": true
+    },
+    {
+      "name": "typical-permutation",
+      "args": [
+        "listen",
+        "silent"
+      ],
+      "expected": true
+    },
+    {
+      "name": "typical-near-anagram",
+      "args": [
+        "aabb",
+        "abab"
+      ],
+      "expected": true
+    }
+  ]
+}
