@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-prep"
+version = "0.1.0"
+description = "Local LeetCode / FastPrep practice: store problems and run your own test cases"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+prep = "prep.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["prep*"]
