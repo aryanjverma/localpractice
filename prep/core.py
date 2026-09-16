@@ -19,6 +19,7 @@ class TestCase:
     kwargs: dict[str, Any]
     unordered: bool
     name: str | None
+    has_expected: bool = True
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], index: int) -> TestCase:
@@ -28,12 +29,14 @@ class TestCase:
                 args = [args]
         else:
             args = data.get("args", [])
+        has_expected = "expected" in data
         return cls(
             args=list(args),
-            expected=data["expected"],
+            expected=data.get("expected"),
             kwargs=dict(data.get("kwargs", {})),
             unordered=bool(data.get("unordered", False)),
             name=data.get("name") or f"case {index + 1}",
+            has_expected=has_expected,
         )
 
 
@@ -101,7 +104,7 @@ def save_tests(meta: ProblemMeta) -> None:
                 **({"name": t.name} if t.name and not t.name.startswith("case ") else {}),
                 "args": t.args,
                 **({"kwargs": t.kwargs} if t.kwargs else {}),
-                "expected": t.expected,
+                **({"expected": t.expected} if t.has_expected else {}),
                 **({"unordered": True} if t.unordered else {}),
             }
             for t in meta.tests
@@ -110,26 +113,11 @@ def save_tests(meta: ProblemMeta) -> None:
     meta.tests_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def create_problem(
-    title: str,
-    entry: str,
-    description: str,
-    tests: list[dict[str, Any]] | None = None,
-    slug: str | None = None,
-) -> ProblemMeta:
-    ensure_problems_dir()
-    slug = slugify(slug or title)
-    root = PROBLEMS_DIR / slug
-    if root.exists():
-        raise FileExistsError(f"Problem already exists: {slug}")
-
-    root.mkdir(parents=True)
+def solution_stub(title: str, entry: str) -> str:
     method = entry.split(".")[-1]
-    class_based = "." in entry
-
-    if class_based:
+    if "." in entry:
         class_name, method_name = entry.split(".", 1)
-        stub = f'''"""Solution for: {title}"""
+        return f'''"""Solution for: {title}"""
 
 
 class {class_name}:
@@ -137,8 +125,7 @@ class {class_name}:
         # TODO: implement
         raise NotImplementedError
 '''
-    else:
-        stub = f'''"""Solution for: {title}"""
+    return f'''"""Solution for: {title}"""
 
 
 def {method}(*args, **kwargs):
@@ -146,10 +133,33 @@ def {method}(*args, **kwargs):
     raise NotImplementedError
 '''
 
+
+def create_problem(
+    title: str,
+    entry: str,
+    description: str,
+    tests: list[dict[str, Any]] | None = None,
+    slug: str | None = None,
+    solution: str | None = None,
+    overwrite: bool = False,
+) -> ProblemMeta:
+    ensure_problems_dir()
+    slug = slugify(slug or title)
+    root = PROBLEMS_DIR / slug
+    if root.exists():
+        if not overwrite:
+            raise FileExistsError(f"Problem already exists: {slug}")
+        # Keep directory; overwrite files below.
+    else:
+        root.mkdir(parents=True)
+
     (root / "problem.md").write_text(
         f"# {title}\n\n{description.strip()}\n", encoding="utf-8"
     )
-    (root / "solution.py").write_text(stub, encoding="utf-8")
+    (root / "solution.py").write_text(
+        solution if solution is not None else solution_stub(title, entry),
+        encoding="utf-8",
+    )
 
     meta = ProblemMeta(
         slug=slug,
@@ -160,6 +170,68 @@ def {method}(*args, **kwargs):
     )
     save_tests(meta)
     return meta
+
+
+def parse_cases_payload(data: Any) -> list[dict[str, Any]]:
+    if isinstance(data, dict):
+        if "tests" in data:
+            data = data["tests"]
+        elif "cases" in data:
+            data = data["cases"]
+        else:
+            raise ValueError("JSON object must contain 'tests' or 'cases'")
+    if not isinstance(data, list):
+        raise ValueError("Cases must be a JSON list")
+    return list(data)
+
+
+def materialize_tests(
+    meta: ProblemMeta,
+    cases: list[dict[str, Any]] | None = None,
+) -> ProblemMeta:
+    """Fill missing expected values by running the current solution (oracle).
+
+    Given the same solution and the same input cases, output is deterministic.
+    """
+    raw_cases = cases
+    if raw_cases is None:
+        raw_cases = [
+            {
+                **({"name": t.name} if t.name else {}),
+                "args": t.args,
+                **({"kwargs": t.kwargs} if t.kwargs else {}),
+                **({"expected": t.expected} if t.has_expected else {}),
+                **({"unordered": True} if t.unordered else {}),
+            }
+            for t in meta.tests
+        ]
+
+    fn = load_solution(meta)
+    materialized: list[TestCase] = []
+    for i, raw in enumerate(raw_cases):
+        case = TestCase.from_dict(raw, i)
+        if not case.has_expected:
+            try:
+                actual = fn(*case.args, **case.kwargs)
+            except Exception as exc:  # noqa: BLE001
+                raise RuntimeError(
+                    f"Oracle failed on {case.name}: {type(exc).__name__}: {exc}"
+                ) from exc
+            case.expected = actual
+            case.has_expected = True
+        materialized.append(case)
+
+    meta.tests = materialized
+    save_tests(meta)
+    return meta
+
+
+def stash_reference_solution(meta: ProblemMeta) -> Path:
+    """Copy solution.py to reference.py and replace solution with a stub."""
+    ref = meta.root / "reference.py"
+    ref.write_text(meta.solution_py.read_text(encoding="utf-8"), encoding="utf-8")
+    meta.solution_py.write_text(solution_stub(meta.title, meta.entry), encoding="utf-8")
+    return ref
 
 
 def _values_equal(actual: Any, expected: Any, unordered: bool) -> bool:
@@ -225,6 +297,19 @@ class TestResult:
 def run_tests(meta: ProblemMeta) -> list[TestResult]:
     if not meta.tests:
         return []
+
+    missing = [t.name for t in meta.tests if not t.has_expected]
+    if missing:
+        return [
+            TestResult(
+                name="missing expected",
+                passed=False,
+                error=(
+                    "Some tests have no expected value. "
+                    f"Run `prep materialize {meta.slug}` first. Missing: {missing}"
+                ),
+            )
+        ]
 
     try:
         fn = load_solution(meta)
