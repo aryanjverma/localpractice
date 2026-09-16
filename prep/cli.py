@@ -12,8 +12,11 @@ from .core import (
     create_problem,
     list_problems,
     load_problem,
+    materialize_tests,
+    parse_cases_payload,
     run_tests,
     save_tests,
+    stash_reference_solution,
     TestCase,
 )
 
@@ -198,15 +201,19 @@ def cmd_add_test(args: argparse.Namespace) -> int:
         return 1
 
     raw_args = args.args_json or input('args JSON e.g. [[2,7,11,15], 9]: ').strip()
-    raw_expected = args.expected_json or input("expected JSON: ").strip()
-    if not raw_args or not raw_expected:
-        print("Both args and expected are required.")
+    if not raw_args:
+        print("args are required.")
         return 1
 
     case_data: dict[str, Any] = {
         "args": _parse_json_value(raw_args, "args"),
-        "expected": _parse_json_value(raw_expected, "expected"),
     }
+    if args.expected_json is not None:
+        case_data["expected"] = _parse_json_value(args.expected_json, "expected")
+    elif not args.oracle and sys.stdin.isatty() and args.args_json is None:
+        raw_expected = input("expected JSON (blank = fill via oracle/materialize): ").strip()
+        if raw_expected:
+            case_data["expected"] = _parse_json_value(raw_expected, "expected")
     if args.name:
         case_data["name"] = args.name
     if args.unordered:
@@ -214,7 +221,94 @@ def cmd_add_test(args: argparse.Namespace) -> int:
 
     meta.tests.append(TestCase.from_dict(case_data, len(meta.tests)))
     save_tests(meta)
+
+    if args.oracle or "expected" not in case_data:
+        try:
+            materialize_tests(meta)
+        except Exception as exc:  # noqa: BLE001
+            print(f"Saved input case, but oracle failed: {exc}")
+            return 1
+        print(f"Added oracle-filled test to {meta.slug}. Total tests: {len(meta.tests)}")
+        return 0
+
     print(f"Added test to {meta.slug}. Total tests: {len(meta.tests)}")
+    return 0
+
+
+def cmd_scaffold(args: argparse.Namespace) -> int:
+    title = args.title
+    if not title:
+        print("--title is required")
+        return 1
+    entry = args.entry or "Solution.solve"
+    if args.description_file:
+        description = Path(args.description_file).read_text(encoding="utf-8")
+    else:
+        description = args.description or ""
+    solution = None
+    if args.solution_file:
+        solution = Path(args.solution_file).read_text(encoding="utf-8")
+
+    try:
+        meta = create_problem(
+            title=title,
+            entry=entry,
+            description=description or "No description yet.",
+            tests=[],
+            slug=args.slug,
+            solution=solution,
+            overwrite=args.overwrite,
+        )
+    except FileExistsError as exc:
+        print(exc)
+        return 1
+
+    print(f"Scaffolded: {meta.slug}")
+    print(f"  {meta.problem_md}")
+    print(f"  {meta.solution_py}")
+    print(f"  {meta.tests_json}")
+    return 0
+
+
+def cmd_materialize(args: argparse.Namespace) -> int:
+    try:
+        meta = load_problem(args.slug)
+    except FileNotFoundError as exc:
+        print(exc)
+        return 1
+
+    cases = None
+    if args.cases_file:
+        raw = json.loads(Path(args.cases_file).read_text(encoding="utf-8"))
+        try:
+            cases = parse_cases_payload(raw)
+        except ValueError as exc:
+            print(exc)
+            return 1
+
+    try:
+        meta = materialize_tests(meta, cases=cases)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Materialize failed: {exc}")
+        return 1
+
+    print(f"Materialized {len(meta.tests)} test(s) for {meta.slug} using solution.py as oracle.")
+    if args.practice:
+        ref = stash_reference_solution(meta)
+        print(f"Practice mode: solution stubbed; reference saved at {ref}")
+    if args.run:
+        return _print_results(meta.slug, run_tests(meta))
+    return 0
+
+
+def cmd_practice(args: argparse.Namespace) -> int:
+    try:
+        meta = load_problem(args.slug)
+    except FileNotFoundError as exc:
+        print(exc)
+        return 1
+    ref = stash_reference_solution(meta)
+    print(f"Stashed solution at {ref} and left a stub in solution.py")
     return 0
 
 
@@ -236,6 +330,43 @@ def build_parser() -> argparse.ArgumentParser:
     new_p.add_argument("--no-tests", action="store_true", help="Skip interactive test entry")
     new_p.set_defaults(func=cmd_new)
 
+    scaffold_p = sub.add_parser(
+        "scaffold",
+        help="Create problem files from title/entry/description (no interactive prompts)",
+    )
+    scaffold_p.add_argument("--title", required=True)
+    scaffold_p.add_argument("--entry", default="Solution.solve")
+    scaffold_p.add_argument("--slug")
+    scaffold_p.add_argument("--description")
+    scaffold_p.add_argument("--description-file")
+    scaffold_p.add_argument("--solution-file", help="Optional initial solution.py contents")
+    scaffold_p.add_argument("--overwrite", action="store_true")
+    scaffold_p.set_defaults(func=cmd_scaffold)
+
+    mat_p = sub.add_parser(
+        "materialize",
+        help="Fill expected outputs by running solution.py as a deterministic oracle",
+    )
+    mat_p.add_argument("slug")
+    mat_p.add_argument(
+        "--cases-file",
+        help="JSON list of input-only cases ({name,args,...}); replaces existing tests",
+    )
+    mat_p.add_argument("--run", action="store_true", help="Run tests after materializing")
+    mat_p.add_argument(
+        "--practice",
+        action="store_true",
+        help="After materializing, move solution to reference.py and leave a stub",
+    )
+    mat_p.set_defaults(func=cmd_materialize)
+
+    practice_p = sub.add_parser(
+        "practice",
+        help="Move solution.py to reference.py and leave a stub to re-solve",
+    )
+    practice_p.add_argument("slug")
+    practice_p.set_defaults(func=cmd_practice)
+
     list_p = sub.add_parser("list", help="List local problems")
     list_p.set_defaults(func=cmd_list)
 
@@ -252,6 +383,11 @@ def build_parser() -> argparse.ArgumentParser:
     add_p.add_argument("--name")
     add_p.add_argument("--args-json")
     add_p.add_argument("--expected-json")
+    add_p.add_argument(
+        "--oracle",
+        action="store_true",
+        help="Compute expected by running the current solution",
+    )
     add_p.add_argument("--unordered", action="store_true")
     add_p.set_defaults(func=cmd_add_test)
 
