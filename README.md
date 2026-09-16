@@ -10,7 +10,7 @@ Paste a problem description (or say “prep this question”) and the agent will
 
 1. Scaffold `problems/<slug>/`
 2. Write a correct `solution.py`
-3. Invent edge-case **inputs**
+3. Invent a full **input** suite (typical/happy-path cases **plus** required edge cases)
 4. Fill **expected** values deterministically via `prep materialize` (solution = oracle)
 5. Verify with `prep run`
 

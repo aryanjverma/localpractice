@@ -2,10 +2,11 @@
 name: prep-problem
 description: >-
   Turn a coding-interview / LeetCode / FastPrep problem description into a local
-  practice problem: solve it, invent edge-case inputs, and deterministically
-  generate expected outputs from the solution oracle. Use when the user pastes
-  a problem statement, asks to prep a question, generate tests, or set up local
-  practice without manually entering testcases.
+  practice problem: solve it, generate a full input suite (typical cases plus
+  required edge cases), and deterministically fill expected outputs from the
+  solution oracle. Use when the user pastes a problem statement, asks to prep a
+  question, generate tests, or set up local practice without manually entering
+  testcases.
 ---
 
 # Prep Problem (description → solved + tests)
@@ -15,7 +16,7 @@ Build a local practice problem from **only a question description**. Do **not** 
 ## Goal
 
 1. Solve the problem correctly in Python.
-2. Design strong **input** cases (examples + edge cases).
+2. Design a **full input suite**: typical / happy-path cases **and** edge cases (edge cases are required, but not the only cases).
 3. Generate **expected** values deterministically by running the solution as an oracle (`prep materialize`).
 4. Verify with `prep run`. Optionally stash the solution for practice.
 
@@ -59,19 +60,25 @@ Write `/tmp/<slug>-cases.json` as a list of **inputs only** (no `expected`):
 {
   "cases": [
     { "name": "example-1", "args": [[2, 7, 11, 15], 9], "unordered": true },
-    { "name": "empty-or-min", "args": [[1, 2], 3] },
+    { "name": "typical-mid", "args": [[1, 5, 3, 7, 2], 9], "unordered": true },
+    { "name": "edge-min-pair", "args": [[1, 2], 3], "unordered": true },
     { "name": "edge-duplicates", "args": [[3, 3], 6], "unordered": true }
   ]
 }
 ```
 
-Follow `references/edge-cases.md` for what to cover. Include:
+Follow `references/test-suite.md`. The suite **must** include all of:
 
-- Every example from the prompt (when runnable)
-- Boundary / empty / single-element cases allowed by constraints
-- Duplicates, negatives, zeros, sorted/unsorted as relevant
-- At least one non-trivial mid-size case
-- Set `"unordered": true` only when the problem allows any order
+| Category | What to include |
+| --- | --- |
+| **Prompt examples** | Every runnable example from the description |
+| **Typical / happy-path** | Ordinary mid-size inputs that reflect common use (not only edges) |
+| **Edge cases** | Required — boundaries, empties/min size, duplicates, negatives/zeros, order extremes, etc. as constraints allow |
+| **At least one harder case** | Slightly larger or structurally interesting input |
+
+Name edge cases with an `edge-` prefix (e.g. `edge-empty`, `edge-duplicates`) so coverage is obvious.
+
+Set `"unordered": true` only when the problem allows any order.
 
 **Do not invent expected outputs by hand.** The oracle fills them.
 
@@ -105,7 +112,7 @@ Tell the user:
 
 - Problem path (`problems/<slug>/`)
 - Entry point
-- How many tests were generated
+- How many tests were generated (mention that the suite includes typical + edge cases)
 - `prep run <slug>` / `prep show <slug>` commands
 - Whether a reference solution was stashed
 
@@ -113,6 +120,7 @@ Tell the user:
 
 - **Never** require the user to paste testcases or expected values when they gave a description.
 - **Never** hand-author `expected` when the oracle can compute it.
+- **Never** ship a suite that is only edge cases or only happy-path — include both; edge cases are mandatory.
 - Prefer `python3 -m prep ...` so PATH setup is unnecessary.
 - Keep one folder per problem under `problems/`.
 - If the problem is not solvable in pure Python (needs unavailable APIs), say so and stop before scaffolding.
@@ -126,4 +134,4 @@ Tell the user:
 | Practice stub | `python3 -m prep practice <slug>` |
 | Re-check | `python3 -m prep run <slug>` |
 
-See `references/edge-cases.md` for the edge-case checklist.
+See `references/test-suite.md` for the full coverage checklist.

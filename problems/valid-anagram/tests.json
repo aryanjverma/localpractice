@@ -19,7 +19,7 @@
       "expected": false
     },
     {
-      "name": "single-char-same",
+      "name": "typical-single-match",
       "args": [
         "a",
         "a"
@@ -27,7 +27,7 @@
       "expected": true
     },
     {
-      "name": "single-char-diff",
+      "name": "typical-single-mismatch",
       "args": [
         "a",
         "b"
@@ -35,7 +35,7 @@
       "expected": false
     },
     {
-      "name": "different-lengths",
+      "name": "edge-different-lengths",
       "args": [
         "ab",
         "a"
@@ -43,7 +43,7 @@
       "expected": false
     },
     {
-      "name": "all-same-letters",
+      "name": "edge-all-same-letters",
       "args": [
         "aaaa",
         "aaaa"
@@ -51,7 +51,7 @@
       "expected": true
     },
     {
-      "name": "permutation-edge",
+      "name": "typical-permutation",
       "args": [
         "listen",
         "silent"
@@ -59,7 +59,7 @@
       "expected": true
     },
     {
-      "name": "near-anagram",
+      "name": "typical-near-anagram",
       "args": [
         "aabb",
         "abab"
