@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Optional helper: scaffold + materialize in one shot for agents.
 
+Writes under problems/local/ by default (gitignored). Pass --shared to put
+samples under problems/ instead.
+
 Usage:
   python3 build_problem.py \\
     --title "Two Sum" \\
@@ -8,7 +11,7 @@ Usage:
     --description-file desc.md \\
     --solution-file sol.py \\
     --cases-file cases.json \\
-    [--practice] [--overwrite]
+    [--practice] [--overwrite] [--shared]
 """
 
 from __future__ import annotations
@@ -42,6 +45,11 @@ def main() -> int:
     parser.add_argument("--slug")
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--practice", action="store_true")
+    parser.add_argument(
+        "--shared",
+        action="store_true",
+        help="Write under problems/ (tracked samples) instead of problems/local/",
+    )
     args = parser.parse_args()
 
     description = Path(args.description_file).read_text(encoding="utf-8")
@@ -56,11 +64,12 @@ def main() -> int:
         slug=args.slug,
         solution=solution,
         overwrite=args.overwrite,
+        local=not args.shared,
     )
     meta = materialize_tests(meta, cases=cases)
     results = run_tests(meta)
     passed = sum(1 for r in results if r.passed)
-    print(f"Built {meta.slug}: {passed}/{len(results)} tests passed")
+    print(f"Built {meta.slug} at {meta.root}: {passed}/{len(results)} tests passed")
     for r in results:
         status = "PASS" if r.passed else "FAIL"
         print(f"  {status}  {r.name}")

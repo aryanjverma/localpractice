@@ -11,7 +11,9 @@ description: >-
 
 # Prep Problem (description → solved + tests)
 
-Build a local practice problem from **only a question description**. Do **not** ask the user to supply test cases or expected outputs.
+Build a **local-only** practice problem from **only a question description**. Do **not** ask the user to supply test cases or expected outputs.
+
+Personal problems go under `problems/local/` (gitignored). **Do not commit, push, or open a PR** for generated problems unless the user explicitly asks.
 
 ## Goal
 
@@ -19,6 +21,7 @@ Build a local practice problem from **only a question description**. Do **not** 
 2. Design a **full input suite**: typical / happy-path cases **and** edge cases (edge cases are required, but not the only cases).
 3. Generate **expected** values deterministically by running the solution as an oracle (`prep materialize`).
 4. Verify with `prep run`. Optionally stash the solution for practice.
+5. Leave the result on disk for the user — local only by default.
 
 ## Workflow (follow in order)
 
@@ -33,20 +36,21 @@ From the description, determine:
 
 If the signature is ambiguous, pick a clear LeetCode-style `Solution` method and state it briefly.
 
-### 2. Scaffold
+### 2. Scaffold (local)
 
 ```bash
 python3 -m prep scaffold \
+  --local \
   --title "TITLE" \
   --entry "Solution.methodName" \
   --description-file /tmp/problem-desc.md
 ```
 
-Write the full prompt into `/tmp/problem-desc.md` (or pass `--description`).
+Write the full prompt into `/tmp/problem-desc.md` (or pass `--description`). Always pass `--local` unless the user asks to add a shared sample under `problems/`.
 
 ### 3. Write the solution
 
-Edit `problems/<slug>/solution.py` with a correct, readable implementation.
+Edit `problems/local/<slug>/solution.py` with a correct, readable implementation.
 
 - Prefer the standard library; no network I/O.
 - Match the declared `entry`.
@@ -110,26 +114,29 @@ This copies `solution.py` → `reference.py` and leaves a stub.
 
 Tell the user:
 
-- Problem path (`problems/<slug>/`)
+- Problem path (`problems/local/<slug>/`) and that it is **local / not committed**
 - Entry point
 - How many tests were generated (mention that the suite includes typical + edge cases)
 - `prep run <slug>` / `prep show <slug>` commands
 - Whether a reference solution was stashed
+
+Do **not** `git add` / commit / push / open a PR for the problem unless asked.
 
 ## Rules
 
 - **Never** require the user to paste testcases or expected values when they gave a description.
 - **Never** hand-author `expected` when the oracle can compute it.
 - **Never** ship a suite that is only edge cases or only happy-path — include both; edge cases are mandatory.
+- **Never** commit generated problems by default — use `--local` / `problems/local/`.
 - Prefer `python3 -m prep ...` so PATH setup is unnecessary.
-- Keep one folder per problem under `problems/`.
+- Keep one folder per problem under `problems/local/` (or `problems/` only when the user wants a shared sample).
 - If the problem is not solvable in pure Python (needs unavailable APIs), say so and stop before scaffolding.
 
 ## Quick reference
 
 | Step | Command |
 | --- | --- |
-| Scaffold | `python3 -m prep scaffold --title ... --entry ... --description-file ...` |
+| Scaffold (local) | `python3 -m prep scaffold --local --title ... --entry ... --description-file ...` |
 | Fill expecteds | `python3 -m prep materialize <slug> --cases-file ... --run` |
 | Practice stub | `python3 -m prep practice <slug>` |
 | Re-check | `python3 -m prep run <slug>` |

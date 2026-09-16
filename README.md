@@ -8,7 +8,7 @@ This repo includes a Cursor skill: **`prep-problem`**.
 
 Paste a problem description (or say “prep this question”) and the agent will:
 
-1. Scaffold `problems/<slug>/`
+1. Scaffold under **`problems/local/`** (gitignored — not committed unless you ask)
 2. Write a correct `solution.py`
 3. Invent a full **input** suite (typical/happy-path cases **plus** required edge cases)
 4. Fill **expected** values deterministically via `prep materialize` (solution = oracle)
@@ -28,18 +28,13 @@ python3 -m prep run two-sum
 ## Description → tests (oracle flow)
 
 ```bash
-# 1. Scaffold from the prompt
-python3 -m prep scaffold \
+# Personal practice (default for the skill) — stays local / gitignored
+python3 -m prep scaffold --local \
   --title "Valid Anagram" \
   --entry "Solution.isAnagram" \
   --description-file /tmp/desc.md
 
-# 2. Write problems/valid-anagram/solution.py
-
-# 3. Write input-only cases (no expected)
-# /tmp/cases.json → { "cases": [ { "name": "...", "args": ["ab", "ba"] }, ... ] }
-
-# 4. Materialize expecteds from the solution, then run
+# Write problems/local/<slug>/solution.py, then input-only cases.json
 python3 -m prep materialize valid-anagram --cases-file /tmp/cases.json --run
 
 # Optional: hide the solution so you can re-solve it
@@ -51,11 +46,14 @@ Same solution + same cases file ⇒ same tests every time.
 ## Problem layout
 
 ```
-problems/<slug>/
-  problem.md      # description
-  solution.py     # your code / oracle
-  tests.json      # entry + cases
-  reference.py    # optional stashed solution (after prep practice)
+problems/                 # optional shared samples (tracked)
+  two-sum/
+problems/local/           # your practice problems (gitignored)
+  <slug>/
+    problem.md
+    solution.py
+    tests.json
+    reference.py          # optional, after prep practice
 ```
 
 ## Test format
@@ -84,7 +82,7 @@ problems/<slug>/
 
 | Command | What it does |
 |---|---|
-| `prep scaffold` | Create problem files from title/entry/description |
+| `prep scaffold --local` | Create a personal problem under `problems/local/` |
 | `prep materialize <slug>` | Fill expected outputs using `solution.py` as oracle |
 | `prep practice <slug>` | Move solution → `reference.py`, leave a stub |
 | `prep new` | Interactive create (optional manual tests) |
@@ -95,3 +93,4 @@ problems/<slug>/
 
 - `two-sum` — 3 tests
 - `plus-one` — 2 tests
+- `valid-anagram` — 8 oracle-generated tests

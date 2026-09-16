@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 PROBLEMS_DIR = Path(__file__).resolve().parent.parent / "problems"
+LOCAL_PROBLEMS_DIR = PROBLEMS_DIR / "local"
 
 
 @dataclass
@@ -72,19 +73,47 @@ def ensure_problems_dir() -> Path:
     return PROBLEMS_DIR
 
 
-def list_problems() -> list[Path]:
+def ensure_local_problems_dir() -> Path:
+    LOCAL_PROBLEMS_DIR.mkdir(parents=True, exist_ok=True)
+    return LOCAL_PROBLEMS_DIR
+
+
+def problem_roots() -> list[Path]:
+    """Sample problems live in problems/; personal ones in problems/local/."""
     ensure_problems_dir()
-    return sorted(
-        p for p in PROBLEMS_DIR.iterdir() if p.is_dir() and (p / "tests.json").exists()
+    roots = [PROBLEMS_DIR]
+    if LOCAL_PROBLEMS_DIR.is_dir():
+        roots.append(LOCAL_PROBLEMS_DIR)
+    return roots
+
+
+def list_problems() -> list[Path]:
+    found: list[Path] = []
+    for root in problem_roots():
+        for p in root.iterdir():
+            if p.name == "local":
+                continue
+            if p.is_dir() and (p / "tests.json").exists():
+                found.append(p)
+    return sorted(found, key=lambda p: p.name)
+
+
+def resolve_problem_root(slug: str) -> Path:
+    """Prefer problems/local/<slug> when both exist."""
+    local = LOCAL_PROBLEMS_DIR / slug
+    shared = PROBLEMS_DIR / slug
+    if (local / "tests.json").exists():
+        return local
+    if (shared / "tests.json").exists():
+        return shared
+    raise FileNotFoundError(
+        f"No problem found for '{slug}' under {LOCAL_PROBLEMS_DIR} or {PROBLEMS_DIR}"
     )
 
 
 def load_problem(slug: str) -> ProblemMeta:
-    root = PROBLEMS_DIR / slug
+    root = resolve_problem_root(slug)
     tests_path = root / "tests.json"
-    if not tests_path.exists():
-        raise FileNotFoundError(f"No problem found at {root}")
-
     data = json.loads(tests_path.read_text(encoding="utf-8"))
     entry = data.get("entry") or data.get("function")
     if not entry:
@@ -142,13 +171,15 @@ def create_problem(
     slug: str | None = None,
     solution: str | None = None,
     overwrite: bool = False,
+    local: bool = False,
 ) -> ProblemMeta:
     ensure_problems_dir()
     slug = slugify(slug or title)
-    root = PROBLEMS_DIR / slug
+    parent = ensure_local_problems_dir() if local else PROBLEMS_DIR
+    root = parent / slug
     if root.exists():
         if not overwrite:
-            raise FileExistsError(f"Problem already exists: {slug}")
+            raise FileExistsError(f"Problem already exists: {slug} ({root})")
         # Keep directory; overwrite files below.
     else:
         root.mkdir(parents=True)
