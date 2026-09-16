@@ -8,6 +8,7 @@ from typing import Any
 
 from . import __version__
 from .core import (
+    LOCAL_PROBLEMS_DIR,
     PROBLEMS_DIR,
     create_problem,
     list_problems,
@@ -136,12 +137,14 @@ def cmd_new(args: argparse.Namespace) -> int:
             description=description or "No description yet.",
             tests=tests,
             slug=args.slug,
+            local=args.local,
         )
     except FileExistsError as exc:
         print(exc)
         return 1
 
-    print(f"\nCreated problem: {meta.slug}")
+    scope = "local" if args.local else "sample"
+    print(f"\nCreated problem: {meta.slug} [{scope}]")
     print(f"  Description: {meta.problem_md}")
     print(f"  Solution:    {meta.solution_py}")
     print(f"  Tests:       {meta.tests_json}")
@@ -152,14 +155,21 @@ def cmd_new(args: argparse.Namespace) -> int:
 def cmd_list(_: argparse.Namespace) -> int:
     problems = list_problems()
     if not problems:
-        print(f"No problems yet. Create one with `prep new`.\n(Problems live in {PROBLEMS_DIR})")
+        print(
+            f"No problems yet. Create one with `prep scaffold --local` or `prep new`.\n"
+            f"(Samples: {PROBLEMS_DIR}; personal: {LOCAL_PROBLEMS_DIR})"
+        )
         return 0
-    print(f"Problems in {PROBLEMS_DIR}:\n")
+    print("Problems:\n")
     for path in problems:
+        scope = "local" if LOCAL_PROBLEMS_DIR in path.parents or path.parent == LOCAL_PROBLEMS_DIR else "sample"
         try:
             meta = load_problem(path.name)
             n = len(meta.tests)
-            print(f"  {meta.slug:30}  {meta.title}  ({n} test{'s' if n != 1 else ''})")
+            print(
+                f"  {meta.slug:30}  {meta.title}  "
+                f"({n} test{'s' if n != 1 else ''}, {scope})"
+            )
         except Exception as exc:  # noqa: BLE001
             print(f"  {path.name:30}  (invalid: {exc})")
     return 0
@@ -258,12 +268,14 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
             slug=args.slug,
             solution=solution,
             overwrite=args.overwrite,
+            local=args.local,
         )
     except FileExistsError as exc:
         print(exc)
         return 1
 
-    print(f"Scaffolded: {meta.slug}")
+    scope = "local (gitignored)" if args.local else "sample"
+    print(f"Scaffolded: {meta.slug} [{scope}]")
     print(f"  {meta.problem_md}")
     print(f"  {meta.solution_py}")
     print(f"  {meta.tests_json}")
@@ -328,6 +340,11 @@ def build_parser() -> argparse.ArgumentParser:
     new_p.add_argument("--description-file", help="Read description from a file")
     new_p.add_argument("--tests-file", help="JSON file with a list of tests (or {tests: [...]})")
     new_p.add_argument("--no-tests", action="store_true", help="Skip interactive test entry")
+    new_p.add_argument(
+        "--local",
+        action="store_true",
+        help="Write under problems/local/ (gitignored personal practice)",
+    )
     new_p.set_defaults(func=cmd_new)
 
     scaffold_p = sub.add_parser(
@@ -341,6 +358,11 @@ def build_parser() -> argparse.ArgumentParser:
     scaffold_p.add_argument("--description-file")
     scaffold_p.add_argument("--solution-file", help="Optional initial solution.py contents")
     scaffold_p.add_argument("--overwrite", action="store_true")
+    scaffold_p.add_argument(
+        "--local",
+        action="store_true",
+        help="Write under problems/local/ (gitignored personal practice; default for the skill)",
+    )
     scaffold_p.set_defaults(func=cmd_scaffold)
 
     mat_p = sub.add_parser(
