@@ -1,0 +1,328 @@
+{
+  "title": "Monthly Billing Charges",
+  "entry": "Solution.calculateMonthlyCharges",
+  "tests": [
+    {
+      "name": "example-1-subscriptions-only",
+      "args": [
+        [
+          "user_1,sub_a,1000",
+          "user_1,sub_b,2500",
+          "user_2,sub_c,500",
+          "user_2,sub_d,3000",
+          "user_2,sub_e,1500",
+          "user_3,sub_f,2000"
+        ],
+        [],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "user_1",
+          "3500"
+        ],
+        [
+          "user_2",
+          "5000"
+        ],
+        [
+          "user_3",
+          "2000"
+        ]
+      ]
+    },
+    {
+      "name": "example-2-change-and-tiered-usage",
+      "args": [
+        [
+          "u1,s1,1000",
+          "u1,s2,2000"
+        ],
+        [
+          "u1,s1,s1_plus,2000,15"
+        ],
+        [
+          "api,3,100",
+          "api,-1,50"
+        ],
+        [
+          "u1,api,2",
+          "u1,api,5"
+        ]
+      ],
+      "expected": [
+        [
+          "u1",
+          "4033"
+        ]
+      ]
+    },
+    {
+      "name": "example-3-floor-once-across-subs",
+      "args": [
+        [
+          "u,s1,1000",
+          "u,s2,2000"
+        ],
+        [
+          "u,s2,s2_plus,3000,29",
+          "u,s1,s1_plus,2000,29"
+        ],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "u",
+          "3133"
+        ]
+      ]
+    },
+    {
+      "name": "example-4-chained-changes",
+      "args": [
+        [
+          "user_1,sub_a,1000",
+          "user_1,sub_b,2500",
+          "user_2,sub_c,500",
+          "user_3,sub_d,2000"
+        ],
+        [
+          "user_1,sub_a,sub_a_plus,1500,11",
+          "user_1,sub_a_plus,sub_a_pro,3000,21",
+          "user_2,sub_c,sub_c_premium,1200,16"
+        ],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "user_1",
+          "4333"
+        ],
+        [
+          "user_2",
+          "850"
+        ],
+        [
+          "user_3",
+          "2000"
+        ]
+      ]
+    },
+    {
+      "name": "typical-usage-only-flat",
+      "args": [
+        [],
+        [],
+        [
+          "storage,-1,25"
+        ],
+        [
+          "alice,storage,10",
+          "bob,storage,4"
+        ]
+      ],
+      "expected": [
+        [
+          "alice",
+          "250"
+        ],
+        [
+          "bob",
+          "100"
+        ]
+      ]
+    },
+    {
+      "name": "typical-multi-user-tiers-and-subs",
+      "args": [
+        [
+          "alice,s_basic,3000",
+          "bob,s_basic,3000"
+        ],
+        [
+          "alice,s_basic,s_pro,6000,10"
+        ],
+        [
+          "calls,5,200",
+          "calls,20,100",
+          "calls,-1,40"
+        ],
+        [
+          "alice,calls,12",
+          "bob,calls,3",
+          "bob,calls,2"
+        ]
+      ],
+      "expected": [
+        [
+          "alice",
+          "5900"
+        ],
+        [
+          "bob",
+          "1900"
+        ]
+      ]
+    },
+    {
+      "name": "typical-out-of-order-changes",
+      "args": [
+        [
+          "u,s1,900"
+        ],
+        [
+          "u,s1_mid,s1_end,1500,20",
+          "u,s1,s1_mid,1200,8"
+        ],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "u",
+          "1240"
+        ]
+      ]
+    },
+    {
+      "name": "edge-all-empty",
+      "args": [
+        [],
+        [],
+        [],
+        []
+      ],
+      "expected": []
+    },
+    {
+      "name": "edge-zero-cost-and-zero-usage",
+      "args": [
+        [
+          "u,s0,0"
+        ],
+        [],
+        [
+          "p,-1,0"
+        ],
+        [
+          "u,p,100"
+        ]
+      ],
+      "expected": [
+        [
+          "u",
+          "0"
+        ]
+      ]
+    },
+    {
+      "name": "edge-add-sentinel-and-change-day-1",
+      "args": [
+        [
+          "u,s_existing,1000"
+        ],
+        [
+          "u,-,s_new,3000,1",
+          "u,s_existing,s_existing_v2,500,16"
+        ],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "u",
+          "3750"
+        ]
+      ]
+    },
+    {
+      "name": "edge-change-on-day-30",
+      "args": [
+        [
+          "u,s1,3000"
+        ],
+        [
+          "u,s1,s2,0,30"
+        ],
+        [],
+        []
+      ],
+      "expected": [
+        [
+          "u",
+          "2900"
+        ]
+      ]
+    },
+    {
+      "name": "edge-unordered-pricing-tiers",
+      "args": [
+        [],
+        [],
+        [
+          "api,-1,10",
+          "api,10,50",
+          "api,2,100"
+        ],
+        [
+          "u,api,15"
+        ]
+      ],
+      "expected": [
+        [
+          "u",
+          "650"
+        ]
+      ]
+    },
+    {
+      "name": "harder-mixed-chains-usage-sorted-users",
+      "args": [
+        [
+          "z_user,sz1,1000",
+          "a_user,sa1,2000",
+          "m_user,sm1,500"
+        ],
+        [
+          "m_user,sm1,sm2,800,5",
+          "a_user,-,sa_extra,400,12",
+          "m_user,sm2,sm3,1000,18",
+          "z_user,sz1,sz2,2500,25"
+        ],
+        [
+          "cpu,100,5",
+          "cpu,-1,2",
+          "disk,-1,7"
+        ],
+        [
+          "z_user,cpu,50",
+          "a_user,disk,3",
+          "a_user,cpu,120",
+          "m_user,disk,0",
+          "orphan,cpu,10"
+        ]
+      ],
+      "expected": [
+        [
+          "a_user",
+          "2814"
+        ],
+        [
+          "m_user",
+          "846"
+        ],
+        [
+          "orphan",
+          "50"
+        ],
+        [
+          "z_user",
+          "1550"
+        ]
+      ]
+    }
+  ]
+}
