@@ -5,6 +5,7 @@ dist/
 .eggs/
 local_prep.egg-info/
 .mypy_cache/
+.ruff_cache/
 __pycache__/
 *.py[cod]
 .pytest_cache/
