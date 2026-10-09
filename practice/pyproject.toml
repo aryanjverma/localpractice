@@ -1,0 +1,20 @@
+[project]
+name = "backend-interview-practice"
+version = "0.1.0"
+description = "Timed backend interview drills (stubs only — write solutions yourself)"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["scheduler", "rate_limiter", "ttl_store"]
+pythonpath = ["scheduler", "rate_limiter", "ttl_store"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
